@@ -67,32 +67,49 @@ function tallyOf(records: AttendanceRecord[]): AttendanceTally {
   );
 }
 
+export interface PayrollMonthFilter {
+  crewId?: string;
+  /** 只算單一人員（出勤月曆用）。 */
+  workerId?: string;
+}
+
 /**
  * 組出某個月份的薪資試算表。
+ *
+ * 全部由當月出勤紀錄即時計算，不存任何薪資快照，
+ * 因此領班今天打的卡，管理員重新整理就會反映在金額上。
  *
  * 特休已使用天數是以「特休年度」為範圍計算（不是當月），
  * 因為特休餘額依 §38 是按年資週年計算的。
  */
-export function usePayrollMonth(month: string, crewId?: string) {
+export function usePayrollMonth(month: string, filter: PayrollMonthFilter = {}) {
+  const { crewId, workerId } = filter;
   const from = `${month}-01`;
   const to = `${month}-${String(daysInMonth(Number(month.slice(0, 4)), Number(month.slice(5, 7)))).padStart(2, '0')}`;
 
   const workersQuery = useWorkers();
-  const monthRecordsQuery = useAttendanceList({ from, to, crewId: crewId || undefined });
-  const advancesQuery = useAdvances();
-  const extraPaysQuery = useExtraPays({ month });
+  const monthRecordsQuery = useAttendanceList({
+    from,
+    to,
+    crewId: crewId || undefined,
+    workerId: workerId || undefined,
+  });
+  const advancesQuery = useAdvances(workerId ? { workerId } : undefined);
+  const extraPaysQuery = useExtraPays(workerId ? { workerId, month } : { month });
 
   // 特休餘額要看整個特休年度，範圍可能跨年，這裡多抓兩年份
   const leaveWindow = useAttendanceList({
     from: `${Number(month.slice(0, 4)) - 1}-01-01`,
     to: `${Number(month.slice(0, 4)) + 1}-12-31`,
     status: 'leave',
+    workerId: workerId || undefined,
   });
 
   const rows: PayrollRow[] = useMemo(() => {
-    const workers = (workersQuery.data ?? []).filter(
-      (worker) => worker.active && (!crewId || worker.crewId === crewId),
-    );
+    const workers = (workersQuery.data ?? []).filter((worker) => {
+      if (workerId) return worker.id === workerId;
+      return worker.active && (!crewId || worker.crewId === crewId);
+    });
     const records = monthRecordsQuery.data ?? [];
     const advances = advancesQuery.data ?? [];
     const extraPays = extraPaysQuery.data ?? [];
@@ -143,6 +160,7 @@ export function usePayrollMonth(month: string, crewId?: string) {
     extraPaysQuery.data,
     leaveWindow.data,
     crewId,
+    workerId,
     month,
     to,
   ]);

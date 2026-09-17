@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Wallet } from 'lucide-react';
 import type { AttendanceRecord } from '@/types';
 import {
   buildMonthMatrix,
@@ -9,6 +9,7 @@ import {
   WEEKDAY_SHORT,
 } from '@/lib/date';
 import { computeWorkedMinutes, minutesToHours } from '@/lib/hours';
+import { formatMoney } from '@/lib/payroll';
 import { attendanceToCsv, buildExportFileName, downloadCsv } from '@/lib/export';
 import { toErrorMessage } from '@/lib/errors';
 import { Button } from '@/components/Button';
@@ -19,6 +20,8 @@ import { useCrews } from '@/features/crews/queries';
 import { useWorkers } from '@/features/workers/queries';
 import { useAttendanceList } from '@/features/attendance/queries';
 import { MonthCell } from './MonthCell';
+import { usePayrollMonth } from '@/features/payroll/usePayrollMonth';
+import { PayrollDetailSheet } from '@/features/payroll/PayrollDetailSheet';
 
 const today = todayWorkDate();
 
@@ -29,6 +32,7 @@ function pad(value: number): string {
 /** 人員當月出勤月曆：僅管理員可看，可選人員與前後切換年月。 */
 export function AdminCalendarPage() {
   const [workerId, setWorkerId] = useState('');
+  const [editingPayroll, setEditingPayroll] = useState(false);
   const [cursor, setCursor] = useState(() => ({
     year: Number(today.slice(0, 4)),
     month: Number(today.slice(5, 7)),
@@ -41,7 +45,12 @@ export function AdminCalendarPage() {
   const from = `${cursor.year}-${pad(cursor.month)}-01`;
   const to = `${cursor.year}-${pad(cursor.month)}-${pad(daysInMonth(cursor.year, cursor.month))}`;
 
+  const payMonth = `${cursor.year}-${pad(cursor.month)}`;
   const attendanceQuery = useAttendanceList({ from, to, workerId: workerId || undefined }, Boolean(workerId));
+
+  // 薪資完全由當月出勤即時計算，沒有快照，所以打卡一改金額就跟著變
+  const payroll = usePayrollMonth(payMonth, { workerId: workerId || undefined });
+  const payrollRow = workerId ? (payroll.rows[0] ?? null) : null;
 
   const recordByDate = useMemo(() => {
     const map = new Map<string, AttendanceRecord>();
@@ -98,7 +107,10 @@ export function AdminCalendarPage() {
         <Select
           aria-label="選擇人員"
           value={workerId}
-          onChange={(event) => setWorkerId(event.target.value)}
+          onChange={(event) => {
+            setWorkerId(event.target.value);
+            setEditingPayroll(false);
+          }}
         >
           <option value="">請選擇人員…</option>
           {(workersQuery.data ?? []).map((item) => (
@@ -113,7 +125,10 @@ export function AdminCalendarPage() {
           <button
             type="button"
             aria-label="上個月"
-            onClick={() => setCursor((current) => shiftMonth(current.year, current.month, -1))}
+            onClick={() => {
+              setCursor((current) => shiftMonth(current.year, current.month, -1));
+              setEditingPayroll(false);
+            }}
             className="tap flex items-center justify-center rounded-xl border border-line-strong text-ink-soft hover:bg-surface-sunken"
           >
             <ChevronLeft size={22} />
@@ -124,7 +139,10 @@ export function AdminCalendarPage() {
           <button
             type="button"
             aria-label="下個月"
-            onClick={() => setCursor((current) => shiftMonth(current.year, current.month, 1))}
+            onClick={() => {
+              setCursor((current) => shiftMonth(current.year, current.month, 1));
+              setEditingPayroll(false);
+            }}
             className="tap flex items-center justify-center rounded-xl border border-line-strong text-ink-soft hover:bg-surface-sunken"
           >
             <ChevronRight size={22} />
@@ -198,6 +216,92 @@ export function AdminCalendarPage() {
             </table>
           </div>
 
+          {payrollRow ? (
+            <section className="rounded-2xl border border-line bg-surface p-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h2 className="flex items-center gap-1.5 font-bold text-ink">
+                  <Wallet size={17} />
+                  當月薪資試算
+                </h2>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setEditingPayroll(true)}
+                  disabled={payroll.isLoading}
+                >
+                  借支／加給
+                </Button>
+              </div>
+
+              {payrollRow.worker.dailyWage ? (
+                <>
+                  <dl className="tnum divide-y divide-line text-sm">
+                    <div className="flex justify-between py-1.5">
+                      <dt className="text-ink-soft">
+                        出勤工資（{formatMoney(payrollRow.breakdown.dailyWage)} ×{' '}
+                        {payrollRow.tally.presentDays} 天）
+                      </dt>
+                      <dd className="font-semibold text-ink">
+                        {formatMoney(payrollRow.breakdown.attendancePay)}
+                      </dd>
+                    </div>
+                    {payrollRow.breakdown.annualLeavePay > 0 ? (
+                      <div className="flex justify-between py-1.5">
+                        <dt className="text-ink-soft">
+                          特休工資（全薪 × {payrollRow.tally.annualLeaveDays} 天）
+                        </dt>
+                        <dd className="font-semibold text-ink">
+                          {formatMoney(payrollRow.breakdown.annualLeavePay)}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {payrollRow.breakdown.sickLeavePay > 0 ? (
+                      <div className="flex justify-between py-1.5">
+                        <dt className="text-ink-soft">
+                          病假工資（半薪 × {payrollRow.tally.sickLeaveDays} 天）
+                        </dt>
+                        <dd className="font-semibold text-ink">
+                          {formatMoney(payrollRow.breakdown.sickLeavePay)}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {payrollRow.breakdown.extraPayTotal > 0 ? (
+                      <div className="flex justify-between py-1.5">
+                        <dt className="text-ink-soft">額外派遣加給</dt>
+                        <dd className="font-semibold text-present">
+                          + {formatMoney(payrollRow.breakdown.extraPayTotal)}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {payrollRow.breakdown.advanceDeductionTotal > 0 ? (
+                      <div className="flex justify-between py-1.5">
+                        <dt className="text-ink-soft">借支還款</dt>
+                        <dd className="font-semibold text-absent">
+                          − {formatMoney(payrollRow.breakdown.advanceDeductionTotal)}
+                        </dd>
+                      </div>
+                    ) : null}
+                    <div className="flex items-baseline justify-between py-2">
+                      <dt className="font-bold text-ink">實領金額</dt>
+                      <dd className="text-2xl font-bold text-brand">
+                        {formatMoney(payrollRow.breakdown.netPay)}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <p className="mt-1 text-xs text-ink-mute">
+                    金額依當月出勤即時計算，打卡或請假一更動就會跟著變。
+                    事假與未到不計薪；不含加班費、勞健保與稅務扣繳。
+                  </p>
+                </>
+              ) : (
+                <p className="rounded-xl bg-leave-soft px-3 py-2 text-sm font-semibold text-leave">
+                  這位人員尚未設定日薪，無法試算月薪。請到「人員」頁補上。
+                </p>
+              )}
+            </section>
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-3 text-xs text-ink-soft">
             <span className="flex items-center gap-1">
               <span className="size-3 rounded bg-present-soft ring-1 ring-present" />出勤
@@ -219,6 +323,13 @@ export function AdminCalendarPage() {
           </p>
         </>
       )}
+      {editingPayroll && payrollRow ? (
+        <PayrollDetailSheet
+          row={payrollRow}
+          month={payMonth}
+          onClose={() => setEditingPayroll(false)}
+        />
+      ) : null}
     </div>
   );
 }

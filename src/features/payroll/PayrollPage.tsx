@@ -23,7 +23,7 @@ export function PayrollPage() {
 
   const toast = useToast();
   const crewsQuery = useCrews();
-  const { rows, range, isLoading, isError, error, refetch } = usePayrollMonth(month, crewId);
+  const { rows, range, isLoading, isError, error, refetch } = usePayrollMonth(month, { crewId });
 
   const crewNameById = useMemo(
     () => new Map((crewsQuery.data ?? []).map((crew) => [crew.id, crew.name])),
