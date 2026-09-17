@@ -15,6 +15,11 @@ interface EditPunchSheetProps {
   crewId: string;
   workDate: string;
   readOnly: boolean;
+  /**
+   * 是否顯示並允許編輯實際打卡時間。只有管理員為 true；
+   * 領班看不到時間點，也不能改時間，只能改狀態、假別與備註。
+   */
+  showTimes: boolean;
   onClose: () => void;
 }
 
@@ -37,7 +42,14 @@ function toTimeInput(iso: string | null): string {
 }
 
 /** 由呼叫端條件渲染，每次開啟都是新的實例，初始值直接取自傳入的那一列。 */
-export function EditPunchSheet({ row, crewId, workDate, readOnly, onClose }: EditPunchSheetProps) {
+export function EditPunchSheet({
+  row,
+  crewId,
+  workDate,
+  readOnly,
+  showTimes,
+  onClose,
+}: EditPunchSheetProps) {
   const [status, setStatus] = useState<AttendanceStatus>(row.status);
   const [checkIn, setCheckIn] = useState(toTimeInput(row.checkInAt));
   const [checkOut, setCheckOut] = useState(toTimeInput(row.checkOutAt));
@@ -62,13 +74,24 @@ export function EditPunchSheet({ row, crewId, workDate, readOnly, onClose }: Edi
       return;
     }
 
-    if (status === 'present') {
+    if (showTimes && status === 'present') {
       const invalid = validatePunchTimes(checkInAt, checkOutAt);
       if (invalid) {
         setError(invalid);
         return;
       }
     }
+
+    /**
+     * 沒有時間編輯權限時完全不送時間欄位，避免把畫面上看不到的值覆寫掉。
+     * 改成請假／未到時仍要清空時間，這由服務層依 status 處理。
+     */
+    const timeFields = showTimes
+      ? {
+          checkInAt: status === 'present' ? checkInAt : null,
+          checkOutAt: status === 'present' ? checkOutAt : null,
+        }
+      : {};
 
     try {
       await upsert.mutateAsync({
@@ -77,8 +100,7 @@ export function EditPunchSheet({ row, crewId, workDate, readOnly, onClose }: Edi
         workDate,
         status,
         leaveType: status === 'leave' ? leaveType : undefined,
-        checkInAt: status === 'present' ? checkInAt : null,
-        checkOutAt: status === 'present' ? checkOutAt : null,
+        ...timeFields,
         note: note.trim(),
       });
       toast.success(`已更新 ${row.worker.name} 的紀錄`);
@@ -133,7 +155,17 @@ export function EditPunchSheet({ row, crewId, workDate, readOnly, onClose }: Edi
           )}
         </Field>
 
-        {status === 'present' ? (
+        {status === 'present' && !showTimes ? (
+          <div className="rounded-xl bg-surface-sunken px-3 py-2 text-sm text-ink-soft">
+            <p className="font-semibold text-ink">
+              {row.checkInAt ? '上班已打卡' : '上班未打卡'}
+              <span className="ml-3">{row.checkOutAt ? '下班已打卡' : '下班未打卡'}</span>
+            </p>
+            <p className="mt-1 text-xs">
+              實際打卡時間僅管理員可檢視與修改。如需更正時間，請聯絡管理員。
+            </p>
+          </div>
+        ) : status === 'present' ? (
           <div className="grid grid-cols-2 gap-3">
             <Field label="上班時間">
               {(id) => (

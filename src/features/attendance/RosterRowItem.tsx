@@ -1,5 +1,6 @@
-import { AlertTriangle, Check, ChevronRight, LogIn, LogOut } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight, Circle, LogIn, LogOut } from 'lucide-react';
 import type { RosterRow } from '@/lib/attendance';
+import { STATUS_LABEL } from '@/lib/attendance';
 import { formatClock } from '@/lib/date';
 import { formatWorkedDuration } from '@/lib/hours';
 import { StatusChip } from '@/components/StatusChip';
@@ -9,6 +10,11 @@ interface RosterRowItemProps {
   row: RosterRow;
   /** 唯讀模式（過去日期）時所有編輯按鈕停用。 */
   readOnly: boolean;
+  /**
+   * 是否顯示實際打卡時間點。只有管理員為 true；
+   * 領班與師傅只看得到「有沒有打卡」，看不到幾點幾分。
+   */
+  showTimes: boolean;
   pending: boolean;
   onPunch: (row: RosterRow, kind: 'in' | 'out') => void;
   onOpenDetail: (row: RosterRow) => void;
@@ -20,7 +26,7 @@ function PrimaryAction({
   readOnly,
   pending,
   onPunch,
-}: Omit<RosterRowItemProps, 'onOpenDetail'>) {
+}: Omit<RosterRowItemProps, 'onOpenDetail' | 'showTimes'>) {
   if (row.punchState === 'blocked') {
     return (
       <Button size="sm" variant="secondary" disabled>
@@ -52,9 +58,39 @@ function PrimaryAction({
   );
 }
 
+/** 不顯示時間點時改用文字標示進度，讓領班仍看得出打卡到哪一步。 */
+function PunchProgress({ row }: { row: RosterRow }) {
+  if (row.status !== 'present') {
+    return <p className="mt-1.5 text-sm text-ink-soft">今日{STATUS_LABEL[row.status]}，不需打卡</p>;
+  }
+
+  const steps = [
+    { label: '上班', done: row.checkInAt !== null },
+    { label: '下班', done: row.checkOutAt !== null },
+  ];
+
+  return (
+    <div className="mt-1.5 flex items-center gap-2 text-sm">
+      {steps.map((step) => (
+        <span
+          key={step.label}
+          className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 font-semibold ${
+            step.done ? 'bg-present-soft text-present' : 'bg-idle-soft text-idle'
+          }`}
+        >
+          {step.done ? <Check size={13} /> : <Circle size={11} />}
+          {step.label}
+          {step.done ? '已打' : '未打'}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function RosterRowItem({
   row,
   readOnly,
+  showTimes,
   pending,
   onPunch,
   onOpenDetail,
@@ -79,19 +115,23 @@ export function RosterRowItem({
             <ChevronRight size={16} className="shrink-0 text-ink-mute" />
           </div>
 
-          <div className="tnum mt-1.5 flex items-center gap-3 text-sm text-ink-soft">
-            <span>
-              上班 <span className="font-semibold text-ink">{formatClock(row.checkInAt)}</span>
-            </span>
-            <span>
-              下班 <span className="font-semibold text-ink">{formatClock(row.checkOutAt)}</span>
-            </span>
-            {row.workedMinutes !== null ? (
-              <span className="text-ink-mute">{formatWorkedDuration(row.workedMinutes)}</span>
-            ) : null}
-          </div>
+          {showTimes ? (
+            <div className="tnum mt-1.5 flex items-center gap-3 text-sm text-ink-soft">
+              <span>
+                上班 <span className="font-semibold text-ink">{formatClock(row.checkInAt)}</span>
+              </span>
+              <span>
+                下班 <span className="font-semibold text-ink">{formatClock(row.checkOutAt)}</span>
+              </span>
+              {row.workedMinutes !== null ? (
+                <span className="text-ink-mute">{formatWorkedDuration(row.workedMinutes)}</span>
+              ) : null}
+            </div>
+          ) : (
+            <PunchProgress row={row} />
+          )}
 
-          {row.missingCheckOut ? (
+          {showTimes && row.missingCheckOut ? (
             <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-leave">
               <AlertTriangle size={13} />
               尚未打下班卡

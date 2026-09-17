@@ -10,6 +10,16 @@
  *   - 後端回傳的 JSON 一律用 src/schemas 的 Zod schema parse 過再回傳，
  *     讓型別保證延伸到執行期。
  *   - 認證改用 HttpOnly cookie 或 Authorization header，前端不儲存密碼。
+ *
+ * ⚠️ 打卡時間點的可見範圍
+ * 依需求，實際打卡時間（checkInAt / checkOutAt）只有管理員看得到，
+ * 領班與師傅只能知道「有沒有打卡」。目前 mock 階段是在畫面層依
+ * src/lib/permissions.ts 的 attendance:viewPunchTime 決定顯示與否，
+ * 但資料仍完整存在瀏覽器裡 —— 這不是真正的保護。
+ *
+ * 後端實作時**必須**在 API 回應中就把非管理員的時間欄位拿掉，
+ * 例如回傳 { checkedIn: true, checkOutAt: null } 這種只帶狀態的形狀，
+ * 否則打開 DevTools 就能看到完整時間。
  */
 import { NotImplementedError } from '@/lib/errors';
 import type {

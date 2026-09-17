@@ -41,6 +41,7 @@ describe('管理員', () => {
     expect(can(admin, 'attendance:viewAll')).toBe(true);
     expect(can(admin, 'account:resetPassword')).toBe(true);
     expect(can(admin, 'attendance:viewHistory')).toBe(true);
+    expect(can(admin, 'attendance:viewPunchTime')).toBe(true);
     expect(can(admin, 'attendance:edit', { crewId: 'crew-b', workDate: '2026-01-01', today: TODAY })).toBe(
       true,
     );
@@ -71,10 +72,17 @@ describe('領班', () => {
     ).toBe(false);
   });
 
+  it('看不到實際打卡時間點，只知道有沒有打卡', () => {
+    expect(can(foremanA, 'attendance:viewPunchTime', { crewId: 'crew-a' })).toBe(false);
+    expect(can(openedWorker, 'attendance:viewPunchTime', { crewId: 'crew-a' })).toBe(false);
+    expect(can(admin, 'attendance:viewPunchTime')).toBe(true);
+  });
+
   it('不能檢視出勤歷史與匯出報表（只有管理員可以）', () => {
     expect(can(foremanA, 'attendance:viewHistory', { crewId: 'crew-a' })).toBe(false);
     expect(can(foremanA, 'report:export', { crewId: 'crew-a' })).toBe(false);
     expect(can(admin, 'attendance:viewHistory')).toBe(true);
+    expect(can(admin, 'attendance:viewPunchTime')).toBe(true);
     expect(can(admin, 'report:export')).toBe(true);
   });
 

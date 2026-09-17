@@ -150,6 +150,8 @@ export function AdminAttendancePage() {
           crewId={editing.record.crewId}
           workDate={editing.record.workDate}
           readOnly={false}
+          // 這是管理員專屬頁面，本來就看得到也改得了時間
+          showTimes
           onClose={() => setEditing(null)}
         />
       ) : null}

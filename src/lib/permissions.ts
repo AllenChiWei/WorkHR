@@ -13,6 +13,7 @@ export type PermissionAction =
   | 'attendance:punchSelf' // 為自己打卡
   | 'attendance:edit' // 修改打卡紀錄
   | 'attendance:viewHistory' // 檢視歷史出勤資料與報表（僅管理員）
+  | 'attendance:viewPunchTime' // 檢視實際打卡時間點（僅管理員）
   | 'report:export' // 匯出報表（僅管理員）
   | 'payroll:manage' // 檢視與維護薪資、借支、額外加給（僅管理員）
   | 'account:resetPassword'; // 重設他人密碼
@@ -45,8 +46,8 @@ export function can(
   }
 
   switch (action) {
-    // 維護類操作，以及出勤歷史與報表，都只有管理員可以做；
-    // 領班只負責當日打卡。
+    // 維護類操作、出勤歷史與報表、薪資，都只有管理員可以做；
+    // 領班只負責當日打卡，而且只看得到「有沒有打卡」，看不到幾點幾分打的。
     case 'crew:manage':
     case 'worker:manage':
     case 'attendance:viewAll':
@@ -54,6 +55,7 @@ export function can(
     case 'attendance:viewHistory':
     case 'report:export':
     case 'payroll:manage':
+    case 'attendance:viewPunchTime':
       return false;
 
     case 'attendance:viewCrew':

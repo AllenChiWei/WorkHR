@@ -4,6 +4,7 @@ import { formatClock, formatWorkDateLabel, todayWorkDate } from '@/lib/date';
 import { formatWorkedDuration } from '@/lib/hours';
 import { holidayName } from '@/lib/calendar';
 import { isAppError, toErrorMessage } from '@/lib/errors';
+import { can } from '@/lib/permissions';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useWorker } from '@/features/workers/queries';
 import { Button } from '@/components/Button';
@@ -54,6 +55,8 @@ export function MyPunchPage() {
   const record = (attendanceQuery.data ?? []).find((item) => item.workerId === worker.id) ?? null;
   const row = buildRosterRow(worker, record);
   const holiday = holidayName(workDate);
+  // 實際打卡時間點只有管理員看得到
+  const showTimes = can(user, 'attendance:viewPunchTime', { crewId: user.crewId });
 
   const runPunch = async (kind: 'in' | 'out', overwrite = false) => {
     try {
@@ -90,18 +93,29 @@ export function MyPunchPage() {
           <StatusChip status={row.status} />
         </div>
 
-        <div className="tnum mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-surface-sunken py-3">
-            <p className="text-xs font-semibold text-ink-soft">上班</p>
-            <p className="text-2xl font-bold text-ink">{formatClock(row.checkInAt)}</p>
-          </div>
-          <div className="rounded-xl bg-surface-sunken py-3">
-            <p className="text-xs font-semibold text-ink-soft">下班</p>
-            <p className="text-2xl font-bold text-ink">{formatClock(row.checkOutAt)}</p>
-          </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {(
+            [
+              { label: '上班', done: row.checkInAt !== null, at: row.checkInAt },
+              { label: '下班', done: row.checkOutAt !== null, at: row.checkOutAt },
+            ] as const
+          ).map((step) => (
+            <div key={step.label} className="rounded-xl bg-surface-sunken py-3">
+              <p className="text-xs font-semibold text-ink-soft">{step.label}</p>
+              {showTimes ? (
+                <p className="tnum text-2xl font-bold text-ink">{formatClock(step.at)}</p>
+              ) : (
+                <p
+                  className={`text-xl font-bold ${step.done ? 'text-present' : 'text-idle'}`}
+                >
+                  {step.done ? '已打卡' : '未打卡'}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
 
-        {row.workedMinutes !== null ? (
+        {showTimes && row.workedMinutes !== null ? (
           <p className="mt-3 text-sm font-semibold text-present">
             今日工時 {formatWorkedDuration(row.workedMinutes)}
           </p>
@@ -131,7 +145,9 @@ export function MyPunchPage() {
       )}
 
       <p className="text-center text-xs text-ink-mute">
-        打卡時間以系統時間（台北）為準，如需修改請聯絡領班或管理員。
+        打卡時間以系統時間（台北）為準。
+        {showTimes ? '' : '實際打卡時間僅管理員可檢視，'}
+        如需修改請聯絡領班或管理員。
       </p>
     </div>
   );

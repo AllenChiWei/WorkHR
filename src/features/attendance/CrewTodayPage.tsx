@@ -4,6 +4,7 @@ import type { RosterRow } from '@/lib/attendance';
 import { selectBatchTargets } from '@/lib/attendance';
 import { todayWorkDate } from '@/lib/date';
 import { isAppError, toErrorMessage } from '@/lib/errors';
+import { can } from '@/lib/permissions';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useCrew } from '@/features/crews/queries';
 import { Button } from '@/components/Button';
@@ -41,6 +42,8 @@ export function CrewTodayPage() {
   const toast = useToast();
 
   const readOnly = isPast;
+  // 實際打卡時間點只有管理員看得到；領班只知道有沒有打卡
+  const showTimes = can(user, 'attendance:viewPunchTime', { crewId });
 
   const runPunch = async (row: RosterRow, kind: PunchKind, overwrite = false) => {
     if (!crewId) return;
@@ -136,6 +139,7 @@ export function CrewTodayPage() {
                 key={row.worker.id}
                 row={row}
                 readOnly={readOnly}
+                showTimes={showTimes}
                 pending={punch.isPending && punch.variables?.workerId === row.worker.id}
                 onPunch={(target, kind) => void runPunch(target, kind)}
                 onOpenDetail={setDetailRow}
@@ -178,6 +182,7 @@ export function CrewTodayPage() {
           crewId={crewId}
           workDate={workDate}
           readOnly={readOnly}
+          showTimes={showTimes}
           onClose={() => setDetailRow(null)}
         />
       ) : null}
