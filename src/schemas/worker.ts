@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema, isoDateTimeSchema, workerRoleSchema } from './common';
+import { idSchema, isoDateTimeSchema, workDateSchema, workerRoleSchema } from './common';
 
 export const workerSchema = z.object({
   id: idSchema,
@@ -11,6 +11,10 @@ export const workerSchema = z.object({
     .regex(/^09\d{8}$/, '手機格式須為 09 開頭共 10 碼')
     .optional(),
   employeeNo: z.string().max(20).optional(),
+  /** 到職日，用於計算年資與特別休假（勞基法 §38）。 */
+  hireDate: workDateSchema.optional(),
+  /** 日薪（新臺幣元）。工班採日薪制，月薪由出勤天數計算。 */
+  dailyWage: z.number().int('日薪請填整數').min(0, '日薪不可為負數').optional(),
   /** 是否開通自行打卡；前提是 hasAccount 為 true（見 workerWriteSchema 的 refine）。 */
   canSelfCheckIn: z.boolean(),
   hasAccount: z.boolean(),
@@ -25,6 +29,8 @@ const workerWritableSchema = workerSchema
     role: true,
     phone: true,
     employeeNo: true,
+    hireDate: true,
+    dailyWage: true,
   })
   .extend({
     crewId: idSchema.nullable().default(null),

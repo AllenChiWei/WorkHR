@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
+import { annualLeaveEntitlement, formatServiceLength, DAILY_WAGE_FLOOR } from '@/lib/labor';
+import { formatMoney } from '@/lib/payroll';
+import { todayWorkDate } from '@/lib/date';
 import type { Worker, WorkerRole } from '@/types';
 import { workerCreateInputSchema } from '@/schemas/worker';
 import { toErrorMessage } from '@/lib/errors';
@@ -9,6 +12,34 @@ import { Field, Select, TextInput, Toggle } from '@/components/Form';
 import { useToast } from '@/components/toast';
 import { useCrews } from '@/features/crews/queries';
 import { useCreateWorker, useResetPassword, useUpdateWorker } from './queries';
+
+/** 依到職日即時顯示年資與本年度特休，讓管理員在建檔時就看得到（勞基法 §38）。 */
+function LeavePreview({ hireDate }: { hireDate: string }) {
+  const asOf = todayWorkDate();
+  if (hireDate > asOf) {
+    return (
+      <p className="rounded-xl bg-leave-soft px-3 py-2 text-xs font-semibold text-leave">
+        到職日不能晚於今天。
+      </p>
+    );
+  }
+
+  const leave = annualLeaveEntitlement(hireDate, asOf);
+  return (
+    <div className="rounded-xl bg-surface-sunken px-3 py-2 text-xs text-ink-soft">
+      <p>
+        年資 <span className="font-bold text-ink">{formatServiceLength(hireDate, asOf)}</span>
+        {'\u3000'}本年度特休{' '}
+        <span className="font-bold text-ink">{leave.entitledDays} 天</span>
+      </p>
+      <p className="mt-0.5">
+        {leave.notYetEligible
+          ? leave.basis
+          : `特休年度 ${leave.from} ～ ${leave.to}（${leave.basis}）`}
+      </p>
+    </div>
+  );
+}
 
 interface WorkerFormSheetProps {
   worker?: Worker | null;
@@ -27,6 +58,10 @@ export function WorkerFormSheet({ worker, defaultCrewId, onClose }: WorkerFormSh
   const [role, setRole] = useState<WorkerRole>(worker?.role ?? 'worker');
   const [phone, setPhone] = useState(worker?.phone ?? '');
   const [employeeNo, setEmployeeNo] = useState(worker?.employeeNo ?? '');
+  const [hireDate, setHireDate] = useState(worker?.hireDate ?? '');
+  const [dailyWage, setDailyWage] = useState(
+    worker?.dailyWage === undefined ? '' : String(worker.dailyWage),
+  );
   const [hasAccount, setHasAccount] = useState(worker?.hasAccount ?? false);
   const [canSelfCheckIn, setCanSelfCheckIn] = useState(worker?.canSelfCheckIn ?? false);
   const [active, setActive] = useState(worker?.active ?? true);
@@ -53,6 +88,8 @@ export function WorkerFormSheet({ worker, defaultCrewId, onClose }: WorkerFormSh
       role,
       phone: phone.trim() || undefined,
       employeeNo: employeeNo.trim() || undefined,
+      hireDate: hireDate || undefined,
+      dailyWage: dailyWage.trim() === '' ? undefined : Number(dailyWage),
       hasAccount,
       canSelfCheckIn,
       active,
@@ -168,6 +205,38 @@ export function WorkerFormSheet({ worker, defaultCrewId, onClose }: WorkerFormSh
             )}
           </Field>
         </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="到職日" hint="用於計算年資與特休" required>
+            {(id) => (
+              <TextInput
+                id={id}
+                type="date"
+                className="tnum"
+                value={hireDate}
+                max={todayWorkDate()}
+                onChange={(event) => setHireDate(event.target.value)}
+              />
+            )}
+          </Field>
+          <Field label="日薪（元）" hint={`基本工資換算 ${formatMoney(DAILY_WAGE_FLOOR)}`}>
+            {(id) => (
+              <TextInput
+                id={id}
+                type="number"
+                inputMode="numeric"
+                className="tnum"
+                min={0}
+                step={100}
+                value={dailyWage}
+                onChange={(event) => setDailyWage(event.target.value)}
+                placeholder="例如 2200"
+              />
+            )}
+          </Field>
+        </div>
+
+        {hireDate ? <LeavePreview hireDate={hireDate} /> : null}
 
         <Toggle
           checked={hasAccount}

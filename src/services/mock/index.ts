@@ -3,6 +3,7 @@ import { mockAttendanceRepository } from './attendance';
 import { mockAuthRepository } from './auth';
 import { mockCrewRepository } from './crews';
 import { mockWorkerRepository } from './workers';
+import { mockPayrollRepository } from './payroll';
 import { clearSessionStorage, delay, resetDb } from './db';
 
 const mockDevRepository: DevRepository = {
@@ -18,5 +19,6 @@ export const mockDataSource: DataSource = {
   crews: mockCrewRepository,
   workers: mockWorkerRepository,
   attendance: mockAttendanceRepository,
+  payroll: mockPayrollRepository,
   dev: mockDevRepository,
 };

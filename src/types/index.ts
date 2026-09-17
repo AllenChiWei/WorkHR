@@ -6,6 +6,7 @@ export type {
   Role,
   WorkerRole,
   AttendanceStatus,
+  LeaveType,
 } from '@/schemas/common';
 export type { Crew, CrewCreateInput, CrewUpdateInput } from '@/schemas/crew';
 export type { Worker, WorkerCreateInput, WorkerUpdateInput } from '@/schemas/worker';
@@ -16,3 +17,12 @@ export type {
   PunchKind,
 } from '@/schemas/attendance';
 export type { AuthUser, Credentials, ChangePasswordInput } from '@/schemas/auth';
+export type {
+  PayMonth,
+  Advance,
+  AdvanceCreateInput,
+  AdvanceUpdateInput,
+  ExtraPay,
+  ExtraPayCreateInput,
+  ExtraPayUpdateInput,
+} from '@/schemas/payroll';

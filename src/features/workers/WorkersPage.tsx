@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { Pencil, Plus, Users } from 'lucide-react';
 import type { Worker } from '@/types';
 import { toErrorMessage } from '@/lib/errors';
+import { annualLeaveEntitlement, formatServiceLength } from '@/lib/labor';
+import { formatMoney } from '@/lib/payroll';
+import { todayWorkDate } from '@/lib/date';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/StatusChip';
 import { Select } from '@/components/Form';
@@ -108,12 +111,21 @@ export function WorkersPage() {
                   {worker.role === 'foreman' ? <Chip tone="brand">領班</Chip> : null}
                   {!worker.active ? <Chip>已停用</Chip> : null}
                   {worker.canSelfCheckIn ? <Chip tone="brand">可自行打卡</Chip> : null}
+                  {!worker.hireDate ? <Chip tone="warn">未填到職日</Chip> : null}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-ink-soft">
                   {worker.crewId ? (crewNameById.get(worker.crewId) ?? '未知工班') : '未指派工班'}
                   {worker.employeeNo ? ` · ${worker.employeeNo}` : ''}
                   {worker.phone ? ` · ${worker.phone}` : ''}
                 </p>
+                {worker.hireDate ? (
+                  <p className="tnum mt-0.5 truncate text-xs text-ink-mute">
+                    到職 {worker.hireDate} · 年資{' '}
+                    {formatServiceLength(worker.hireDate, todayWorkDate())} · 特休{' '}
+                    {annualLeaveEntitlement(worker.hireDate, todayWorkDate()).entitledDays} 天
+                    {worker.dailyWage ? ` · 日薪 ${formatMoney(worker.dailyWage)}` : ''}
+                  </p>
+                ) : null}
               </div>
               <Button
                 size="sm"

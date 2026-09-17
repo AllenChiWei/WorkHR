@@ -14,6 +14,7 @@ export type PermissionAction =
   | 'attendance:edit' // 修改打卡紀錄
   | 'attendance:viewHistory' // 檢視歷史出勤資料與報表（僅管理員）
   | 'report:export' // 匯出報表（僅管理員）
+  | 'payroll:manage' // 檢視與維護薪資、借支、額外加給（僅管理員）
   | 'account:resetPassword'; // 重設他人密碼
 
 export interface PermissionContext {
@@ -52,6 +53,7 @@ export function can(
     case 'account:resetPassword':
     case 'attendance:viewHistory':
     case 'report:export':
+    case 'payroll:manage':
       return false;
 
     case 'attendance:viewCrew':

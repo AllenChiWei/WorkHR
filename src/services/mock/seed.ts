@@ -1,6 +1,15 @@
-import type { AttendanceRecord, AttendanceStatus, Crew, Worker } from '@/types';
+import type {
+  Advance,
+  AttendanceRecord,
+  AttendanceStatus,
+  Crew,
+  ExtraPay,
+  LeaveType,
+  Worker,
+} from '@/types';
 import { createId } from '@/lib/id';
 import { shiftWorkDate, todayWorkDate, workDateTimeToIso } from '@/lib/date';
+import { payMonthOf, shiftPayMonth } from '@/lib/payroll';
 import type { MockAccount, MockDb } from './db';
 
 /** 重設密碼後的預設密碼（mock 用）。 */
@@ -71,6 +80,22 @@ export function buildSeed(): MockDb {
   const workers: Worker[] = [];
   const accounts: MockAccount[] = [];
   const attendance: AttendanceRecord[] = [];
+  const advances: Advance[] = [];
+  const extraPays: ExtraPay[] = [];
+
+  const today = todayWorkDate();
+  const thisMonth = payMonthOf(today);
+
+  /** 產生一個到職日：距今 monthsAgo 個月。 */
+  const hireDateMonthsAgo = (monthsAgo: number): string => {
+    const [year, month, day] = today.split('-').map(Number) as [number, number, number];
+    const zeroBased = year * 12 + (month - 1) - monthsAgo;
+    const hireYear = Math.floor(zeroBased / 12);
+    const hireMonth = (zeroBased % 12) + 1;
+    // 用 28 日以內的日期，避免月底日期在短月份失效
+    const hireDay = Math.min(day, 28);
+    return `${hireYear}-${pad(hireMonth)}-${pad(hireDay)}`;
+  };
 
   accounts.push({
     id: createId(),
@@ -94,6 +119,9 @@ export function buildSeed(): MockDb {
       role: 'foreman',
       phone: `09${String(10_000_000 + Math.floor(random() * 89_999_999))}`,
       employeeNo: `E${employeeSeq++}`,
+      // 領班年資較長，用來展示不同的特休級距
+      hireDate: hireDateMonthsAgo(38 + Math.floor(random() * 60)),
+      dailyWage: 2600 + Math.floor(random() * 5) * 100,
       canSelfCheckIn: true,
       hasAccount: true,
       active: true,
@@ -130,6 +158,8 @@ export function buildSeed(): MockDb {
         role: 'worker',
         phone: `09${String(10_000_000 + Math.floor(random() * 89_999_999))}`,
         employeeNo: `E${employeeSeq++}`,
+        hireDate: hireDateMonthsAgo(Math.floor(random() * 80)),
+        dailyWage: 1900 + Math.floor(random() * 8) * 100,
         canSelfCheckIn: Boolean(username),
         hasAccount: Boolean(username),
         active: true,
@@ -160,11 +190,15 @@ export function buildSeed(): MockDb {
       for (const worker of crewWorkers) {
         const roll = random();
         let status: AttendanceStatus = 'present';
+        let leaveType: LeaveType | undefined;
         let note: string | undefined;
 
         if (roll < 0.05) {
           status = 'leave';
-          note = random() < 0.5 ? '事假' : '家中有事';
+          const typeRoll = random();
+          leaveType = typeRoll < 0.4 ? 'annual' : typeRoll < 0.75 ? 'personal' : 'sick';
+          note =
+            leaveType === 'annual' ? '排休' : leaveType === 'sick' ? '身體不適' : '家中有事';
         } else if (roll < 0.08) {
           status = 'absent';
           note = '未到、電話未接';
@@ -197,6 +231,7 @@ export function buildSeed(): MockDb {
           checkInAt,
           checkOutAt,
           status,
+          leaveType,
           note,
           recordedBy: foremanId,
           createdAt: recordedAt,
@@ -206,5 +241,42 @@ export function buildSeed(): MockDb {
     }
   }
 
-  return { crews, workers, attendance, accounts };
+  // 借支：挑兩位師傅，一筆還款中、一筆接近還清
+  const borrowers = workers.filter((worker) => worker.role === 'worker').slice(0, 2);
+  borrowers.forEach((worker, index) => {
+    const amount = index === 0 ? 30_000 : 12_000;
+    const monthlyRepayment = index === 0 ? 5_000 : 4_000;
+    advances.push({
+      id: createId(),
+      workerId: worker.id,
+      amount,
+      monthlyRepayment,
+      startMonth: shiftPayMonth(thisMonth, index === 0 ? -2 : -2),
+      repaidAdjustment: 0,
+      settledMonth: null,
+      borrowedOn: shiftWorkDate(today, index === 0 ? -70 : -65),
+      note: index === 0 ? '家中急用' : '機車修理',
+      createdAt,
+      updatedAt: createdAt,
+    });
+  });
+
+  // 額外派遣加給：本月與上月各幾筆
+  const extraCandidates = workers.filter((worker) => worker.role === 'worker').slice(0, 5);
+  const extraLabels = ['假日吊車支援', '夜間趕工支援', '他案支援', '高空作業加給'];
+  extraCandidates.forEach((worker, index) => {
+    if (random() < 0.45) return;
+    extraPays.push({
+      id: createId(),
+      workerId: worker.id,
+      month: index % 2 === 0 ? thisMonth : shiftPayMonth(thisMonth, -1),
+      workDate: shiftWorkDate(today, -(index + 1) * 3),
+      label: extraLabels[index % extraLabels.length]!,
+      amount: 1_000 + Math.floor(random() * 4) * 500,
+      createdAt,
+      updatedAt: createdAt,
+    });
+  });
+
+  return { crews, workers, attendance, accounts, advances, extraPays };
 }

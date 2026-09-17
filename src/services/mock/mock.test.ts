@@ -39,6 +39,10 @@ const { mockDataSource } = await import('./index');
 const { todayWorkDate, shiftWorkDate, workDateTimeToIso } = await import('@/lib/date');
 const { buildRoster, selectBatchTargets } = await import('@/lib/attendance');
 const { summarizeByWorker } = await import('@/lib/report');
+const { advanceDeduction, advanceOutstanding, payMonthOf, shiftPayMonth } = await import(
+  '@/lib/payroll'
+);
+const { annualLeaveEntitlement } = await import('@/lib/labor');
 const { isAppError } = await import('@/lib/errors');
 
 const services = mockDataSource;
@@ -426,5 +430,138 @@ describe('mock 資料與報表（P1 / P5）', () => {
     expect(await services.auth.getCurrentUser()).toBeNull();
     await loginAs('admin', 'admin123');
     expect(await services.crews.list()).toHaveLength(3);
+  });
+});
+
+
+describe('薪資、借支與額外加給', () => {
+  it('只有管理員讀得到薪資資料', async () => {
+    await loginAs('foreman-a', '1234');
+    await expect(services.payroll.listAdvances()).rejects.toThrow('沒有執行這項操作的權限');
+    await expect(services.payroll.listExtraPays()).rejects.toThrow('沒有執行這項操作的權限');
+
+    await loginAs('worker-a1', '1234');
+    await expect(services.payroll.listAdvances()).rejects.toThrow('沒有執行這項操作的權限');
+  });
+
+  it('領班不能新增借支或加給', async () => {
+    const admin = await loginAs('admin', 'admin123');
+    expect(admin.role).toBe('admin');
+    const target = (await services.workers.list())[0]!;
+
+    await loginAs('foreman-a', '1234');
+    await expect(
+      services.payroll.createAdvance({
+        workerId: target.id,
+        amount: 10_000,
+        monthlyRepayment: 2_000,
+        startMonth: payMonthOf(TODAY),
+      }),
+    ).rejects.toThrow('沒有執行這項操作的權限');
+  });
+
+  it('管理員可以建立借支，並依月份推算扣款與餘額', async () => {
+    await loginAs('admin', 'admin123');
+    const target = (await services.workers.list())[0]!;
+    const startMonth = payMonthOf(TODAY);
+
+    const advance = await services.payroll.createAdvance({
+      workerId: target.id,
+      amount: 12_000,
+      monthlyRepayment: 5_000,
+      startMonth,
+      note: '測試借支',
+    });
+
+    expect(advanceDeduction(advance, startMonth)).toBe(5_000);
+    expect(advanceDeduction(advance, shiftPayMonth(startMonth, 2))).toBe(2_000);
+    expect(advanceOutstanding(advance, shiftPayMonth(startMonth, 2))).toBe(0);
+  });
+
+  it('每月還款不可大於借支總額', async () => {
+    await loginAs('admin', 'admin123');
+    const target = (await services.workers.list())[0]!;
+    await expect(
+      services.payroll.createAdvance({
+        workerId: target.id,
+        amount: 5_000,
+        monthlyRepayment: 8_000,
+        startMonth: payMonthOf(TODAY),
+      }),
+    ).rejects.toThrow('每月還款金額不可大於借支總額');
+  });
+
+  it('可以提前結清借支', async () => {
+    await loginAs('admin', 'admin123');
+    const target = (await services.workers.list())[0]!;
+    const startMonth = payMonthOf(TODAY);
+
+    const advance = await services.payroll.createAdvance({
+      workerId: target.id,
+      amount: 30_000,
+      monthlyRepayment: 5_000,
+      startMonth,
+    });
+    const settled = await services.payroll.updateAdvance(advance.id, { settledMonth: startMonth });
+
+    expect(advanceDeduction(settled, startMonth)).toBe(30_000);
+    expect(advanceOutstanding(settled, startMonth)).toBe(0);
+  });
+
+  it('額外派遣加給可以新增、查詢與刪除', async () => {
+    await loginAs('admin', 'admin123');
+    const target = (await services.workers.list())[0]!;
+    const month = payMonthOf(TODAY);
+
+    const entry = await services.payroll.createExtraPay({
+      workerId: target.id,
+      month,
+      label: '假日吊車支援',
+      amount: 2_000,
+    });
+    expect(entry.amount).toBe(2_000);
+
+    const thisMonth = await services.payroll.listExtraPays({ month });
+    expect(thisMonth.some((item) => item.id === entry.id)).toBe(true);
+
+    // 換個月份就查不到，確認月份篩選有效
+    const otherMonth = await services.payroll.listExtraPays({ month: shiftPayMonth(month, -6) });
+    expect(otherMonth.some((item) => item.id === entry.id)).toBe(false);
+
+    await services.payroll.removeExtraPay(entry.id);
+    const afterRemove = await services.payroll.listExtraPays({ month });
+    expect(afterRemove.some((item) => item.id === entry.id)).toBe(false);
+  });
+
+  it('mock 人員都有到職日與日薪，特休天數算得出來', async () => {
+    await loginAs('admin', 'admin123');
+    const workers = await services.workers.list();
+
+    expect(workers.every((worker) => Boolean(worker.hireDate))).toBe(true);
+    expect(workers.every((worker) => (worker.dailyWage ?? 0) > 0)).toBe(true);
+
+    for (const worker of workers) {
+      const leave = annualLeaveEntitlement(worker.hireDate!, TODAY);
+      expect(leave.entitledDays).toBeGreaterThanOrEqual(0);
+      expect(leave.entitledDays).toBeLessThanOrEqual(30);
+    }
+  });
+
+  it('mock 請假紀錄都有假別，薪資才算得出來', async () => {
+    await loginAs('admin', 'admin123');
+    const records = await services.attendance.list({
+      from: shiftWorkDate(TODAY, -14),
+      to: shiftWorkDate(TODAY, -1),
+      status: 'leave',
+    });
+
+    expect(records.length).toBeGreaterThan(0);
+    expect(records.every((record) => Boolean(record.leaveType))).toBe(true);
+  });
+
+  it('mock 內含借支與額外加給資料，方便直接檢視', async () => {
+    await loginAs('admin', 'admin123');
+    expect((await services.payroll.listAdvances()).length).toBeGreaterThan(0);
+    expect((await services.payroll.listExtraPays()).length).toBeGreaterThan(0);
   });
 });

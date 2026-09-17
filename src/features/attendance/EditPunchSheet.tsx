@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AttendanceStatus } from '@/types';
+import type { AttendanceStatus, LeaveType } from '@/types';
 import type { RosterRow } from '@/lib/attendance';
 import { STATUS_LABEL, validatePunchTimes } from '@/lib/attendance';
 import { formatClock, workDateTimeToIso } from '@/lib/date';
@@ -20,6 +20,17 @@ interface EditPunchSheetProps {
 
 const STATUS_OPTIONS: AttendanceStatus[] = ['present', 'leave', 'absent'];
 
+/**
+ * 假別影響薪資與特休餘額：
+ * 特休照給全薪、病假半薪、事假不給薪（勞工請假規則）。
+ */
+const LEAVE_TYPE_OPTIONS: { value: LeaveType; label: string; hint: string }[] = [
+  { value: 'annual', label: '特休', hint: '全薪，扣特休餘額' },
+  { value: 'personal', label: '事假', hint: '不給薪' },
+  { value: 'sick', label: '病假', hint: '半薪' },
+  { value: 'other', label: '其他', hint: '不給薪' },
+];
+
 /** 只取 HH:mm；沒有時間時回傳空字串讓 input 呈現未填。 */
 function toTimeInput(iso: string | null): string {
   return iso ? formatClock(iso) : '';
@@ -30,6 +41,7 @@ export function EditPunchSheet({ row, crewId, workDate, readOnly, onClose }: Edi
   const [status, setStatus] = useState<AttendanceStatus>(row.status);
   const [checkIn, setCheckIn] = useState(toTimeInput(row.checkInAt));
   const [checkOut, setCheckOut] = useState(toTimeInput(row.checkOutAt));
+  const [leaveType, setLeaveType] = useState<LeaveType>(row.record?.leaveType ?? 'personal');
   const [note, setNote] = useState(row.note ?? '');
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +76,7 @@ export function EditPunchSheet({ row, crewId, workDate, readOnly, onClose }: Edi
         crewId,
         workDate,
         status,
+        leaveType: status === 'leave' ? leaveType : undefined,
         checkInAt: status === 'present' ? checkInAt : null,
         checkOutAt: status === 'present' ? checkOutAt : null,
         note: note.trim(),
@@ -147,9 +160,36 @@ export function EditPunchSheet({ row, crewId, workDate, readOnly, onClose }: Edi
               )}
             </Field>
           </div>
+        ) : status === 'leave' ? (
+          <Field label="假別" hint="影響薪資計算與特休餘額">
+            {(id) => (
+              <div id={id} className="grid grid-cols-2 gap-2">
+                {LEAVE_TYPE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => setLeaveType(option.value)}
+                    className={`tap flex flex-col items-start justify-center rounded-xl border-2 px-3 py-2 text-left transition-colors disabled:opacity-50 ${
+                      leaveType === option.value
+                        ? 'border-brand bg-brand-soft'
+                        : 'border-line bg-surface'
+                    }`}
+                  >
+                    <span
+                      className={`text-sm font-bold ${leaveType === option.value ? 'text-brand' : 'text-ink'}`}
+                    >
+                      {option.label}
+                    </span>
+                    <span className="text-xs text-ink-soft">{option.hint}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Field>
         ) : (
           <p className="rounded-xl bg-surface-sunken px-3 py-2 text-sm text-ink-soft">
-            狀態為「{STATUS_LABEL[status]}」時不記錄上下班時間。
+            狀態為「未到」時不記錄上下班時間，且不計薪。
           </p>
         )}
 

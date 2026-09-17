@@ -1,4 +1,4 @@
-import type { AttendanceRecord, AttendanceStatus, PunchKind, Worker } from '@/types';
+import type { AttendanceRecord, AttendanceStatus, LeaveType, PunchKind, Worker } from '@/types';
 import { computeWorkedMinutes, isMissingCheckOut } from './hours';
 
 /**
@@ -133,4 +133,11 @@ export const STATUS_LABEL: Record<AttendanceStatus, string> = {
   present: '出勤',
   leave: '請假',
   absent: '未到',
+};
+
+export const LEAVE_TYPE_LABEL: Record<LeaveType, string> = {
+  annual: '特休',
+  personal: '事假',
+  sick: '病假',
+  other: '其他',
 };

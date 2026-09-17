@@ -17,6 +17,13 @@ export const roleSchema = z.enum(['admin', 'foreman', 'worker']);
 export const workerRoleSchema = z.enum(['foreman', 'worker']);
 export const attendanceStatusSchema = z.enum(['present', 'leave', 'absent']);
 
+/**
+ * 假別。特休照給全薪、病假半薪、事假不給薪（勞工請假規則），
+ * 因此薪資試算與特休餘額都需要這個欄位。
+ */
+export const leaveTypeSchema = z.enum(['annual', 'personal', 'sick', 'other']);
+
 export type Role = z.infer<typeof roleSchema>;
 export type WorkerRole = z.infer<typeof workerRoleSchema>;
 export type AttendanceStatus = z.infer<typeof attendanceStatusSchema>;
+export type LeaveType = z.infer<typeof leaveTypeSchema>;

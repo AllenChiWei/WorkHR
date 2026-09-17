@@ -1,4 +1,10 @@
 import type {
+  Advance,
+  AdvanceCreateInput,
+  AdvanceUpdateInput,
+  ExtraPay,
+  ExtraPayCreateInput,
+  ExtraPayUpdateInput,
   AttendanceQuery,
   AttendanceRecord,
   AttendanceStatus,
@@ -86,6 +92,22 @@ export interface AttendanceRepository {
   remove(id: string): Promise<void>;
 }
 
+/**
+ * 借支與額外派遣加給。薪資相關資料只有管理員讀得到，
+ * 服務層會擋掉領班與師傅的請求。
+ */
+export interface PayrollRepository {
+  listAdvances(filter?: { workerId?: string }): Promise<Advance[]>;
+  createAdvance(input: AdvanceCreateInput): Promise<Advance>;
+  updateAdvance(id: string, input: AdvanceUpdateInput): Promise<Advance>;
+  removeAdvance(id: string): Promise<void>;
+
+  listExtraPays(filter?: { workerId?: string; month?: string }): Promise<ExtraPay[]>;
+  createExtraPay(input: ExtraPayCreateInput): Promise<ExtraPay>;
+  updateExtraPay(id: string, input: ExtraPayUpdateInput): Promise<ExtraPay>;
+  removeExtraPay(id: string): Promise<void>;
+}
+
 /** 僅供開發模式使用：重置 mock 資料。http 實作會直接丟 NotImplementedError。 */
 export interface DevRepository {
   resetMockData(): Promise<void>;
@@ -96,5 +118,6 @@ export interface DataSource {
   crews: CrewRepository;
   workers: WorkerRepository;
   attendance: AttendanceRepository;
+  payroll: PayrollRepository;
   dev: DevRepository;
 }

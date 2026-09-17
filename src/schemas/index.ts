@@ -3,3 +3,4 @@ export * from './crew';
 export * from './worker';
 export * from './attendance';
 export * from './auth';
+export * from './payroll';

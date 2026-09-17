@@ -1,7 +1,7 @@
 import type { AttendanceRecord, Crew, Worker } from '@/types';
 import { formatClock } from './date';
 import { computeWorkedMinutes, minutesToHours } from './hours';
-import { STATUS_LABEL } from './attendance';
+import { LEAVE_TYPE_LABEL, STATUS_LABEL } from './attendance';
 import { isWorkday, nonWorkdayReason } from './calendar';
 import type { WorkerReportRow } from './report';
 
@@ -32,6 +32,7 @@ export const ATTENDANCE_CSV_HEADERS = [
   '姓名',
   '員工編號',
   '狀態',
+  '假別',
   '上班',
   '下班',
   '工時',
@@ -59,6 +60,7 @@ export function attendanceToCsv(
         workerById.get(record.workerId)?.name ?? '',
         workerById.get(record.workerId)?.employeeNo ?? '',
         STATUS_LABEL[record.status],
+        record.status === 'leave' ? (LEAVE_TYPE_LABEL[record.leaveType ?? 'other'] ?? '') : '',
         formatClock(record.checkInAt),
         formatClock(record.checkOutAt),
         minutes === null ? 0 : minutesToHours(minutes),
@@ -115,4 +117,70 @@ export function downloadCsv(fileName: string, csv: string): void {
   anchor.click();
   document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
+}
+
+export const PAYROLL_CSV_HEADERS = [
+  '月份',
+  '工班',
+  '姓名',
+  '員工編號',
+  '到職日',
+  '日薪',
+  '出勤天數',
+  '特休天數',
+  '病假天數',
+  '事假天數',
+  '未到天數',
+  '出勤工資',
+  '特休工資',
+  '病假工資',
+  '額外加給',
+  '借支扣款',
+  '實領金額',
+];
+
+export interface PayrollCsvRow {
+  month: string;
+  crewName: string;
+  workerName: string;
+  employeeNo: string;
+  hireDate: string;
+  dailyWage: number;
+  presentDays: number;
+  annualLeaveDays: number;
+  sickLeaveDays: number;
+  personalLeaveDays: number;
+  absentDays: number;
+  attendancePay: number;
+  annualLeavePay: number;
+  sickLeavePay: number;
+  extraPayTotal: number;
+  advanceDeductionTotal: number;
+  netPay: number;
+}
+
+/** 月薪試算 CSV：一位人員一列。 */
+export function payrollToCsv(rows: PayrollCsvRow[]): string {
+  return toCsv(
+    PAYROLL_CSV_HEADERS,
+    rows.map((row) => [
+      row.month,
+      row.crewName,
+      row.workerName,
+      row.employeeNo,
+      row.hireDate,
+      row.dailyWage,
+      row.presentDays,
+      row.annualLeaveDays,
+      row.sickLeaveDays,
+      row.personalLeaveDays,
+      row.absentDays,
+      row.attendancePay,
+      row.annualLeavePay,
+      row.sickLeavePay,
+      row.extraPayTotal,
+      row.advanceDeductionTotal,
+      row.netPay,
+    ]),
+  );
 }

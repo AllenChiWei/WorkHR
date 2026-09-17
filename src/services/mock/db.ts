@@ -1,14 +1,15 @@
 import { z } from 'zod';
 import { attendanceRecordSchema } from '@/schemas/attendance';
 import { crewSchema } from '@/schemas/crew';
+import { advanceSchema, extraPaySchema } from '@/schemas/payroll';
 import { workerSchema } from '@/schemas/worker';
 import { roleSchema } from '@/schemas/common';
-import type { AttendanceRecord, Crew, Worker } from '@/types';
+import type { Advance, AttendanceRecord, Crew, ExtraPay, Worker } from '@/types';
 import { buildSeed } from './seed';
 
 /** localStorage key 一律使用 siteclock: 前綴。 */
 const PREFIX = 'siteclock:';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export const STORAGE_KEYS = {
   version: `${PREFIX}version`,
@@ -16,6 +17,8 @@ export const STORAGE_KEYS = {
   workers: `${PREFIX}workers`,
   attendance: `${PREFIX}attendance`,
   accounts: `${PREFIX}accounts`,
+  advances: `${PREFIX}advances`,
+  extraPays: `${PREFIX}extraPays`,
   session: `${PREFIX}session`,
 } as const;
 
@@ -39,6 +42,8 @@ export interface MockDb {
   workers: Worker[];
   attendance: AttendanceRecord[];
   accounts: MockAccount[];
+  advances: Advance[];
+  extraPays: ExtraPay[];
 }
 
 const collectionSchemas = {
@@ -46,6 +51,8 @@ const collectionSchemas = {
   workers: z.array(workerSchema),
   attendance: z.array(attendanceRecordSchema),
   accounts: z.array(mockAccountSchema),
+  advances: z.array(advanceSchema),
+  extraPays: z.array(extraPaySchema),
 } as const;
 
 function readCollection<K extends keyof MockDb>(key: K): MockDb[K] | null {
@@ -75,12 +82,22 @@ export function getDb(): MockDb {
   const workers = readCollection('workers');
   const attendance = readCollection('attendance');
   const accounts = readCollection('accounts');
+  const advances = readCollection('advances');
+  const extraPays = readCollection('extraPays');
 
-  if (version !== String(SCHEMA_VERSION) || !crews || !workers || !attendance || !accounts) {
+  if (
+    version !== String(SCHEMA_VERSION) ||
+    !crews ||
+    !workers ||
+    !attendance ||
+    !accounts ||
+    !advances ||
+    !extraPays
+  ) {
     return resetDb();
   }
 
-  cache = { crews, workers, attendance, accounts };
+  cache = { crews, workers, attendance, accounts, advances, extraPays };
   return cache;
 }
 
@@ -99,6 +116,8 @@ export function resetDb(): MockDb {
   writeCollection('workers', seed.workers);
   writeCollection('attendance', seed.attendance);
   writeCollection('accounts', seed.accounts);
+  writeCollection('advances', seed.advances);
+  writeCollection('extraPays', seed.extraPays);
   localStorage.setItem(STORAGE_KEYS.version, String(SCHEMA_VERSION));
   return seed;
 }

@@ -18,6 +18,7 @@ import type {
   CrewRepository,
   DataSource,
   DevRepository,
+  PayrollRepository,
   WorkerRepository,
 } from '../contracts';
 
@@ -63,6 +64,17 @@ const httpAttendanceRepository: AttendanceRepository = {
   remove: () => notImplemented('attendance.remove'),
 };
 
+const httpPayrollRepository: PayrollRepository = {
+  listAdvances: () => notImplemented('payroll.listAdvances'),
+  createAdvance: () => notImplemented('payroll.createAdvance'),
+  updateAdvance: () => notImplemented('payroll.updateAdvance'),
+  removeAdvance: () => notImplemented('payroll.removeAdvance'),
+  listExtraPays: () => notImplemented('payroll.listExtraPays'),
+  createExtraPay: () => notImplemented('payroll.createExtraPay'),
+  updateExtraPay: () => notImplemented('payroll.updateExtraPay'),
+  removeExtraPay: () => notImplemented('payroll.removeExtraPay'),
+};
+
 const httpDevRepository: DevRepository = {
   // 真實後端沒有「重置假資料」這種操作
   resetMockData: () => notImplemented('dev.resetMockData'),
@@ -73,5 +85,6 @@ export const httpDataSource: DataSource = {
   crews: httpCrewRepository,
   workers: httpWorkerRepository,
   attendance: httpAttendanceRepository,
+  payroll: httpPayrollRepository,
   dev: httpDevRepository,
 };

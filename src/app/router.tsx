@@ -9,6 +9,7 @@ import { AdminDashboard } from '@/features/reports/AdminDashboard';
 import { AdminAttendancePage } from '@/features/reports/AdminAttendancePage';
 import { AdminCalendarPage } from '@/features/reports/AdminCalendarPage';
 import { AdminReportsPage } from '@/features/reports/AdminReportsPage';
+import { PayrollPage } from '@/features/payroll/PayrollPage';
 import { AppLayout } from './AppLayout';
 import { ForbiddenPage, NotFoundPage } from './ErrorPages';
 import { RedirectHome, RequireAuth, RequirePermission, RequireRole } from './guards';
@@ -34,6 +35,7 @@ export function AppRouter() {
               <Route path="admin/attendance" element={<AdminAttendancePage />} />
               <Route path="admin/calendar" element={<AdminCalendarPage />} />
               <Route path="admin/reports" element={<AdminReportsPage />} />
+              <Route path="admin/payroll" element={<PayrollPage />} />
             </Route>
 
             {/* 領班：只有今日打卡頁 */}

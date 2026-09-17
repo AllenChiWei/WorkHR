@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { attendanceStatusSchema, idSchema, isoDateTimeSchema, workDateSchema } from './common';
+import {
+  attendanceStatusSchema,
+  idSchema,
+  isoDateTimeSchema,
+  leaveTypeSchema,
+  workDateSchema,
+} from './common';
 
 /** 打卡紀錄：一人一天一筆。工時為衍生值，不存進資料。 */
 export const attendanceRecordSchema = z.object({
@@ -10,6 +16,8 @@ export const attendanceRecordSchema = z.object({
   checkInAt: isoDateTimeSchema.nullable(),
   checkOutAt: isoDateTimeSchema.nullable(),
   status: attendanceStatusSchema,
+  /** 僅在 status 為 leave 時有意義。 */
+  leaveType: leaveTypeSchema.optional(),
   note: z.string().max(200).optional(),
   recordedBy: idSchema,
   lastModifiedBy: idSchema.optional(),
@@ -22,6 +30,7 @@ export const attendanceWriteSchema = z.object({
   checkInAt: isoDateTimeSchema.nullable().optional(),
   checkOutAt: isoDateTimeSchema.nullable().optional(),
   status: attendanceStatusSchema.optional(),
+  leaveType: leaveTypeSchema.optional(),
   note: z.string().max(200).optional(),
 });
 

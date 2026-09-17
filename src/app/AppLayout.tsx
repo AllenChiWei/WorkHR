@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { CalendarRange, FileBarChart, HardHat, LogOut, Users } from 'lucide-react';
+import { CalendarRange, FileBarChart, HardHat, LogOut, Users, Wallet } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useToast } from '@/components/toast';
 import { DevTools } from './DevTools';
@@ -11,6 +11,7 @@ const ADMIN_NAV = [
   { to: '/admin/attendance', label: '打卡紀錄', icon: CalendarRange, end: false },
   { to: '/admin/calendar', label: '出勤月曆', icon: CalendarRange, end: false },
   { to: '/admin/reports', label: '報表', icon: FileBarChart, end: false },
+  { to: '/admin/payroll', label: '薪資', icon: Wallet, end: false },
 ] as const;
 
 const ROLE_LABEL = {
