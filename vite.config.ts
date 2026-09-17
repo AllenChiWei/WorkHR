@@ -1,0 +1,15 @@
+import { fileURLToPath, URL } from 'node:url';
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+// `base` 由環境變數控制，讓 GitHub Pages（子路徑）與本機開發（根路徑）共用同一份設定。
+export default defineConfig({
+  base: process.env.VITE_BASE ?? '/',
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+});

@@ -1,0 +1,97 @@
+@import 'tailwindcss';
+
+/*
+ * 色彩全部定義成 token（Tailwind v4 的 @theme 會產生對應 utility：bg-surface、text-ink…）。
+ * 規格第 8 節要求戶外強光下可讀：主要文字對白底對比 ≥ 7:1，次要文字亦達 7:1，
+ * 不使用淺灰字。日後要補深色模式，只需要覆寫這些變數。
+ */
+@theme {
+  --color-canvas: #eef1f5; /* 頁面底色 */
+  --color-surface: #ffffff; /* 卡片／列表底色 */
+  --color-surface-sunken: #f1f4f8; /* 次層底色 */
+  --color-line: #cbd3de; /* 分隔線／邊框 */
+  --color-line-strong: #94a3b8;
+
+  --color-ink: #0b1220; /* 主要文字 17:1 */
+  --color-ink-soft: #3d4a5c; /* 次要文字 8.9:1 */
+  --color-ink-mute: #5a6779; /* 輔助文字 6.0:1，僅用於非關鍵資訊 */
+  --color-ink-invert: #ffffff;
+
+  --color-brand: #1a4fd6; /* 主色，白字對比 6.9:1 */
+  --color-brand-strong: #133ba6;
+  --color-brand-soft: #e3ebfd;
+
+  --color-present: #15722f; /* 出勤 */
+  --color-present-soft: #dcf3e3;
+  --color-leave: #8a5200; /* 請假 */
+  --color-leave-soft: #fdeed5;
+  --color-absent: #a81b1b; /* 未到 */
+  --color-absent-soft: #fbe2e2;
+  --color-idle: #4a5668; /* 未打卡 */
+  --color-idle-soft: #e5e9ef;
+
+  --color-danger: #a81b1b;
+  --color-danger-soft: #fbe2e2;
+
+  --font-sans:
+    'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, -apple-system, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  /* 避免 iOS 上點擊出現灰色閃爍 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 規格第 8 節：所有可點擊區域最小 44x44 */
+@utility tap {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* iPhone 底部安全區 */
+@utility pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
+@utility pt-safe {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+}
+
+/* 載入骨架 */
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-sunken) 25%,
+    #e2e7ee 37%,
+    var(--color-surface-sunken) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* 數字對齊（時間欄位） */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+*:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
